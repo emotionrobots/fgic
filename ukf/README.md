@@ -231,7 +231,7 @@ Compile and visualize:
 ```bash
 gcc -std=c11 -O2 ukf.c ukf_test.c -o ukf_test -lm
 python3 plot_ukf_test.py
-
+```
 
 # 🏷️  License
 
