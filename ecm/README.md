@@ -497,7 +497,7 @@ This is done inside ecm_update_from_measurement() whenever the code finds a rest
 
 Once in rest ($I \approx 0$), the RC branch voltage decays approximately as:
 
-   $$ V_{RC}(t) = V_{RC}(0^+}e^{-t/\tau} $$
+   $$ V_{RC}(t) = V_{RC}(0^+) e^{-t/\tau} $$
 
 with:
 
