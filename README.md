@@ -34,6 +34,7 @@ $$
 
 Where:
 
+$$
 | Symbol | Meaning |
 |--------|---------|
 | \( \mathbf{x}_k \) | System state (dimension \(n_x\)) |
@@ -41,7 +42,7 @@ Where:
 | \( \mathbf{u}_k \) | Control input (optional) |
 | \( w_k, v_k \) | Zero-mean process and measurement noise |
 | \( Q, R \) | Noise covariances |
-
+$$
 
 ## ✨ Sigma Points & Scaling
 
@@ -49,7 +50,7 @@ Rather than linearizing, the UKF approximates mean and covariance by evaluating 
 
 ### Sigma Point Generation
 
-For a state mean \( \mathbf{x} \) and covariance \(P\):
+For a state mean $\( \mathbf{x} \)$ and covariance $\(P\)$:
 
 $$
 \lambda = \alpha^2 (n + \kappa) - n, \qquad \gamma = \sqrt{n + \lambda}
@@ -67,7 +68,7 @@ $$
 \chi_{i+n} = \mathbf{x} - \gamma \mathbf{l}_i \quad (i = 1..n)
 $$
 
-where \( \mathbf{l}_i \) is the *i-th column* of the Cholesky factor \(L\):
+where $\( \mathbf{l}_i \)$ is the *i-th column* of the Cholesky factor $\(L\)$:
 
 $$
 P = L L^T
@@ -88,24 +89,26 @@ Covariance weights:
 $$
 W_0^{(c)} = \frac{\lambda}{n + \lambda} + (1 - \alpha^2 + \beta)
 $$
+
 $$
 W_i^{(c)} = \frac{1}{2(n + \lambda)}
 $$
 
 ### Meaning of Parameters
 
+$$
 | Parameter | Role | Recommended |
 |-----------|------|-------------|
 | \( \alpha \) | Spread of sigma points | \(10^{-3}\) to \(10^{-1}\) |
 | \( \beta \) | Encodes prior knowledge (Gaussian → 2) | 2 |
 | \( \kappa \) | Secondary scaling | 0 or 3-n |
-
+$$
 
 ## 🔮 Prediction Step
 
-Given state \( \mathbf{x}_k \), covariance \(P_k\), and input \( \mathbf{u}_k \):
+Given state $\( \mathbf{x}_k \)$, covariance $\(P_k\)$, and input $\( \mathbf{u}_k \)$:
 
-1. Generate sigma points from \( (\mathbf{x}_k, P_k) \)
+1. Generate sigma points from $\( (\mathbf{x}_k, P_k) \)$
 2. Propagate through process model:
 
 $$
@@ -126,7 +129,7 @@ $$
 
 ## 🛰️ Update Step
 
-Given a measurement \( \mathbf{z}_{k+1} \):
+Given a measurement $\( \mathbf{z}_{k+1} \)$:
 
 1. Transform sigma points into measurement space:
 
