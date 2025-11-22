@@ -321,33 +321,84 @@ void ecm_update_h_from_ukf(ecm_t *ecm,
 
 ---
 
-# ECM Unit Test: Charge → Rest and Discharge → Rest
+# Explanation of `ecm_test.c`
 
-This README explains the behavior and purpose of `ecm_test.c`, which exercises the **Equivalent Circuit Model (ECM)** implementation (`ecm.c`) with:
+This document explains the structure and behavior of the **ECM unit test** implemented in `ecm_test.c`.  
+The test exercises:
 
-- 20-element SOC tables for:
-  - $OCV(SOC)$
-  - $H_\mathrm{chg}(SOC)$, $H_\mathrm{dsg}(SOC)$
-  - $R_0(SOC)$, $R_1(SOC)$, $C_1(SOC)$
-- Arrhenius temperature compensation for $R_0$, $R_1$, $C_1$
-- Lumped thermal model for cell temperature $T$
-- Online updates of $R_0$, $R_1$, $C_1$ from rest events
-- Hooks for hysteresis update (not directly used in this test)
-
-The unit test compares a **“true” cell model** to a **“model” ECM** that is allowed to adapt its parameters based on voltage measurements, mimicking how you might calibrate an ECM against real battery data.
+- 20-point table–based ECM,
+- Arrhenius temperature compensation,
+- Online parameter updates for $R_0$, $R_1$, and $C_1$,
+- Behavior across **charge → rest** and **discharge → rest** transitions.
 
 ---
 
-## 1. Overview of the Test
+## 1. Purpose of `ecm_test.c`
 
-The test constructs two ECM instances:
+The file `ecm_test.c` builds a **controlled experiment** to validate:
 
-- `e_true`: represents the *actual* cell behavior.
-- `e_model`: represents the *ECM used in estimation / BMS* whose parameters we want to adapt.
+1. That the **ECM dynamics** (SOC, $V_{RC}$, $T$) behave sensibly under charge/discharge and rest.
+2. That the **online parameter update mechanisms** can adjust:
+   - $R_0$ from voltage step responses at rest,
+   - $R_1$ and $C_1$ from the decay of the RC branch voltage $V_{RC}(t)$.
+3. That a **model ECM** can be driven toward a **true ECM** using only:
+   - Measured terminal voltage $V_\text{meas}$,
+   - Estimated $V_{RC}$ (e.g., from a UKF; in the test, we “cheat” and use the true $V_{RC}$ to isolate the identification logic).
 
-Both are initialized with the same default tables using:
+---
+
+## 2. Two ECM Instances: True vs Model
+
+`ecm_test.c` creates two ECM objects:
+
+- `e_true` — the **true cell**:
+  - Starts from `ecm_init_default()`,
+  - Then its tables for $R_0$, $R_1$, and $C_1$ are deliberately modified:
+    - E.g. $R_0$ is made larger, $R_1$ smaller, $C_1$ larger than the model.
+  - This represents the “real” battery.
+
+- `e_model` — the **model ECM**:
+  - Uses the default table values,
+  - Represents the **initial guess** used for modeling and identification.
+
+Both are initialized with:
 
 ```c
 ecm_init_default(&e_true);
 ecm_init_default(&e_model);
 
+/* Modify true parameters so there's something to learn */
+for (int i = 0; i < ECM_TABLE_SIZE; ++i) {
+    e_true.r0_table[i] *= 1.5;
+    e_true.r1_table[i] *= 0.7;
+    e_true.c1_table[i] *= 1.4;
+}
+```
+
+Dynamic states are then reset with different initial SOCs, e.g.:
+
+e_true starts at $SOC = 0.8$,
+
+e_model starts at $SOC = 0.7$.
+
+---
+
+## 3. Test Phases: Charge/Rest/Discharge/Rest
+
+The test runs in four phases, each with a fixed current:
+
+Phase 0 – Charging
+$I = -1.0\ \mathrm{A}$ (charging, SOC increases).
+
+Phase 1 – Rest after Charge
+$I = 0.0\ \mathrm{A}$ (no current, $V_{RC}$ decays, useful for $R_1$, $C_1$ identification).
+
+Phase 2 – Discharging
+$I = +1.0\ \mathrm{A}$ (discharge, SOC decreases).
+
+Phase 3 – Rest after Discharge
+$I = 0.0\ \mathrm{A}$ (again a rest interval to identify parameters).
+
+Each phase runs for a fixed number of steps (e.g. 100 samples per phase), with constant step size:
+
+$ \delta t = 1 s$
