@@ -401,13 +401,13 @@ $I = 0.0\ \mathrm{A}$ (again a rest interval to identify parameters).
 
 Each phase runs for a fixed number of steps (e.g. 100 samples per phase), with constant step size:
 
-   $$ \delta t = 1 s $$
+   $$ \triangle t = 1 s $$
 
 At each time step $k$:
 
 Time is set to:
 
-   $$ t_k = (k+1)\delta t $$
+   $$ t_k = (k+1)\triangle t $$
 
 The true ECM and model ECM are both stepped forward using:
 
@@ -447,7 +447,7 @@ double V_model = ecm_terminal_voltage(&e_model, I);
 
 ---
 
-## . Online Parameter Updating
+## 5. Online Parameter Updating
 
 The crux of ecm_test.c is calling:
 
@@ -477,6 +477,6 @@ This function performs three main tasks:
 
 When the current transitions from a non-rest region ($|I| > I_\text{rest}$) to a rest region ($|I| \le I_\text{rest}$), the terminal voltage shows an instantaneous step approximately equal to:
 
-   $$ \triangle_V \approx -I_\text{load} R_0 $$
+   $$ \triangle V \approx -I_\text{load} R_0 $$
 
 
