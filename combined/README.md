@@ -20,8 +20,7 @@ The goal is to show that:
 
 The UKF state is a 4-dimensional vector:
 
-$$
-\mathbf{x} =
+$$ \mathbf{x} = 
 \begin{bmatrix}
 SOC \\
 V_{RC} \\
@@ -110,34 +109,21 @@ The UKF process model implements:
 
    With $I>0$ = discharge:
 
-   $$
-   \frac{d(SOC)}{dt} = -\frac{I}{Q_C}.
-   $$
+   $$ \frac{d(SOC)}{dt} = -\frac{I}{Q_C}.  $$
 
    Discretized with step $\Delta t$:
 
-   $$
-   SOC_{k+1} = SOC_k - \frac{\Delta t}{Q_C} I_k.
-   $$
+   $$ SOC_{k+1} = SOC_k - \frac{\Delta t}{Q_C} I_k.  $$
 
 2. **RC branch dynamics**
 
    For the diffusion branch:
 
-   $$
-   \frac{dV_{RC}}{dt}
-   = -\frac{1}{R_1 C_1} V_{RC} + \frac{1}{C_1} I.
-   $$
+   $$ \frac{dV_{RC}}{dt} = -\frac{1}{R_1 C_1} V_{RC} + \frac{1}{C_1} I.  $$
 
    With forward Euler:
 
-   $$
-   V_{RC,k+1} = V_{RC,k}
-   + \Delta t \left(
-     -\frac{V_{RC,k}}{R_1 C_1}
-     + \frac{I_k}{C_1}
-   \right).
-   $$
+   $$ V_{RC,k+1} = V_{RC,k} + \Delta t \left( -\frac{V_{RC,k}}{R_1 C_1} + \frac{I_k}{C_1} \right).  $$
 
    Here $R_1$ and $C_1$ are looked up from tables and scaled by Arrhenius using the **model ECM** `g_ecm_model`.
 
@@ -145,9 +131,7 @@ The UKF process model implements:
 
    The UKF state $H$ is driven toward a quasi-static hysteresis limit $H_\infty$:
 
-   $$
-   \frac{dH}{dt} = \frac{H_\infty - H}{\tau_H},
-   $$
+   $$ \frac{dH}{dt} = \frac{H_\infty - H}{\tau_H}, $$
 
    with $H_\infty$ selected from:
 
@@ -157,30 +141,17 @@ The UKF process model implements:
 
    Discrete update:
 
-   $$
-   H_{k+1} = H_k + \Delta t \, \frac{H_\infty(SOC_k, I_k) - H_k}{\tau_H}.
-   $$
+   $$ H_{k+1} = H_k + \Delta t \, \frac{H_\infty(SOC_k, I_k) - H_k}{\tau_H}.  $$
 
 4. **Thermal dynamics**
 
    With a lumped thermal model:
 
-   $$
-   \frac{dT}{dt} =
-   \frac{1}{C_{th}}
-   \left(
-     I^2 R_0(SOC, T) - \frac{T - T_{amb}}{R_{th}}
-   \right),
-   $$
+   $$ \frac{dT}{dt} = \frac{1}{C_{th}} \left( I^2 R_0(SOC, T) - \frac{T - T_{amb}}{R_{th}} \right), $$
 
    discretized as:
 
-   $$
-   T_{k+1} = T_k + \Delta t
-   \frac{
-     I_k^2 R_0(SOC_k, T_k) - \dfrac{T_k - T_{amb}}{R_{th}}
-   }{C_{th}}.
-   $$
+   $$ T_{k+1} = T_k + \Delta t \frac{ I_k^2 R_0(SOC_k, T_k) - \dfrac{T_k - T_{amb}}{R_{th}} }{C_{th}}.  $$
 
 All required parameters ($R_0$, $R_1$, $C_1$, hysteresis tables, capacity, and thermal parameters) come from `g_ecm_model`.
 
