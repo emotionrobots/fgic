@@ -401,4 +401,82 @@ $I = 0.0\ \mathrm{A}$ (again a rest interval to identify parameters).
 
 Each phase runs for a fixed number of steps (e.g. 100 samples per phase), with constant step size:
 
-$$ \delta t = 1 s $$
+   $$ \delta t = 1 s $$
+
+At each time step $k$:
+
+Time is set to:
+
+   $$ t_k = (k+1)\delta t $$
+
+The true ECM and model ECM are both stepped forward using:
+
+```c
+ecm_step(&e_true,  I, T_amb, dt);
+ecm_step(&e_model, I, T_amb, dt);
+```
+
+where $T_\text{amb}$ is the ambient temperature (fixed, e.g. $20^\circ\mathrm{C}$).
+
+---
+
+## 4. True vs Measured vs Model Voltage
+
+After stepping the true ECM, the test computes the clean true terminal voltage:
+```c
+double V_true_clean = ecm_terminal_voltage(&e_true, I);
+```
+
+To simulate real measurements, the test then adds Gaussian noise:
+
+   $$ V_text{meas} = V_\text{true} + n_V $$
+
+where $n_V$ is normally distributed with, for example, $\sigma \approx 5\ \mathrm{mV}$.
+
+In code:
+
+```c
+double V_meas = V_true_clean + rand_normal(0.005);
+```
+
+The model ECM then computes its own terminal voltage:
+
+```c
+double V_model = ecm_terminal_voltage(&e_model, I);
+```
+
+---
+
+## . Online Parameter Updating
+
+The crux of ecm_test.c is calling:
+
+```c
+ecm_update_from_measurement(&e_model, I, V_meas, vrc_est, dt);
+```
+
+where:
+
+* I is the current at this step,
+
+* V_meas is the noisy terminal voltage from the true ECM,
+
+* vrc_est is an estimate of the RC branch voltage $V_{RC}$,
+
+* dt is the time step.
+
+In the test, to isolate the parameter identification logic, vrc_est is taken from the true model’s internal state:
+
+```c
+double vrc_est = e_true.v_rc;  /* As if from a perfect UKF */
+```
+
+This function performs three main tasks:
+
+### 5.1 Detecting Rest Entry and Updating $R_0$
+
+When the current transitions from a non-rest region ($|I| > I_\text{rest}$) to a rest region ($|I| \le I_\text{rest}$), the terminal voltage shows an instantaneous step approximately equal to:
+
+   $$ \triangle_V \approx -I_\text{load} R_0 $$
+
+
