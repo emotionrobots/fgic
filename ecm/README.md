@@ -525,9 +525,9 @@ The slope $b$ gives:
 
 At rest entry, we also recorded:
 
-$V_{RC}(0^+)$,
+  * $V_{RC}(0^+)$,
 
-$I_\text{step}$.
+  * $I_\text{step}$.
 
 Assuming a first-order RC model, we approximate:
 
@@ -539,4 +539,101 @@ so:
 
 and then:
 
-  
+  $$ C_{1,\text{est}} \approx \frac{\tau}{R_{1,\text{est}} $$
+
+Again, the SOC bin for the current SOC is updated using an exponential moving average:
+
+  $$ R_{1,\text{new}} = (1-\alpha)R_{1,\text{old}} + \alpha R_{1,\text{est}} $$
+
+  $$ C_{1,\text{new}} = (1-\alpha)C_{1,\text{old}} + \alpha C_{1,\text{est}} $$
+
+This ensures gradual adaptation rather than violent jumps.
+
+---
+
+## 6. Output CSV Format
+
+The test prints a CSV header:
+
+```
+phase,k,t,I,
+soc_true,soc_model,
+V_true,V_model,
+R0_true,R0_model,
+R1_true,R1_model,
+C1_true,C1_model
+```
+
+Each row includes:
+
+* phase — phase index (0: charge, 1: rest, 2: discharge, 3: rest),
+
+* k — global time-step index,
+
+* t — simulation time in seconds,
+
+* I — applied current [A],
+
+* soc_true, soc_model — true vs model SOC,
+
+* V_true, V_model — clean true vs model terminal voltages,
+
+* R0_true, R0_model — Arrhenius-scaled $R_0$ from true and model ECM,
+
+* R1_true, R1_model — similarly for $R_1$,
+
+* C1_true, C1_model — similarly for $C_1$.
+
+
+Example usage:
+
+```bash
+gcc -std=c11 -O2 ecm.c ecm_test.c -o ecm_test -lm
+./ecm_test > ecm_output.csv
+```
+
+or with the provided Makefile:
+```bash
+make plot     # builds, runs, saves ecm_output.csv, and calls plot_ecm.py
+```
+---
+
+## 7. Expected Behavior
+
+When you plot the output (e.g., using plot_ecm.py):
+
+1. Voltage curves
+
+* $V_\text{model}$ starts off mismatched from $V_\text{true}$.
+
+* Over time, as $R_0$, $R_1$, and $C_1$ adapt during rest segments, the model’s terminal voltage tracks the true voltage more closely.
+
+2. Parameter trajectories
+
+* $R_0$, $R_1$, $C_1$ of e_model begin noticeably different from e_true.
+
+* Around rest intervals (after load steps), you should see them move toward the true values.
+
+3. SOC consistency
+
+* SOC in the true and model ECMs may differ slightly due to different parameter sets and initial conditions, but the main focus of this test is on parameter identification, not SOC estimation per se.
+
+---
+
+## 8. How to Integrate With a UKF
+
+The logic in ecm_test.c mirrors what you would do in a UKF-based fuel gauge:
+
+1. Use the UKF to estimate $SOC$, $V_{RC}$, $T$, and possibly hysteresis $H$.
+
+2. Pass those estimates and your actual measured voltage/current into:
+
+```c
+ecm_update_from_measurement(&ecm_model, I_meas, V_meas, vrc_est, dt);
+ecm_update_h_from_ukf(&ecm_model, soc_est, H_est, is_chg);
+```
+
+
+3. Gradually, the ECM table parameters adapt to the real cell, improving model accuracy and therefore UKF performance.
+
+ecm_test.c demonstrates this pipeline in a simplified, fully synthetic setup.
