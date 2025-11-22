@@ -1,14 +1,8 @@
-Below is a complete **`README.md`** file formatted for GitHub. It documents **theory of operation**, **equations**, **parameters**, and **basic usage** of the generic UKF module.
-
----
-
-````markdown
 # Generic Unscented Kalman Filter (UKF) in C
 
 This repository provides a **fully configurable**, **embedded-friendly**, **Unscented Kalman Filter (UKF)** implementation in C, along with a sample unit test and visualization script.  
 It supports nonlinear systems, bounded RAM usage, and runs without external libraries.
 
----
 
 ## 📌 Overview
 
@@ -21,7 +15,6 @@ The Unscented Kalman Filter (UKF) is an estimation algorithm useful for tracking
 
 UKF improves over the Extended Kalman Filter (EKF) by **avoiding Jacobians** and instead using **deterministic sampling (sigma points)** to capture how uncertainty flows through the nonlinear model.
 
----
 
 ## 📖 Mathematical Model
 
@@ -49,7 +42,6 @@ Where:
 | \( w_k, v_k \) | Zero-mean process and measurement noise |
 | \( Q, R \) | Noise covariances |
 
----
 
 ## ✨ Sigma Points & Scaling
 
@@ -81,7 +73,6 @@ where \( \mathbf{l}_i \) is the *i-th column* of the Cholesky factor \(L\):
 P = L L^T
 \]
 
----
 
 ### Weighting
 
@@ -109,7 +100,6 @@ W_i^{(c)} = \frac{1}{2(n + \lambda)}
 | \( \beta \) | Encodes prior knowledge (Gaussian → 2) | 2 |
 | \( \kappa \) | Secondary scaling | 0 or 3-n |
 
----
 
 ## 🔮 Prediction Step
 
@@ -134,7 +124,6 @@ Given state \( \mathbf{x}_k \), covariance \(P_k\), and input \( \mathbf{u}_k \)
 P_{k+1|k} = Q + \sum W_i^{(c)} (\chi_{k+1|k}^i - \hat{\mathbf{x}}_{k+1|k})(\chi_{k+1|k}^i - \hat{\mathbf{x}}_{k+1|k})^T
 \]
 
----
 
 ## 🛰️ Update Step
 
@@ -182,7 +171,6 @@ K = P_{xz} S^{-1}
 P_{k+1} = P_{k+1|k} - K S K^T
 \]
 
----
 
 ## 🛠️ Usage (C API Summary)
 
@@ -198,8 +186,6 @@ if (have_measurement)
     ukf_update(&ukf, z_k);
 ````
 
----
-
 ## 📂 Contents
 
 | File               | Description                                  |
@@ -209,7 +195,6 @@ if (have_measurement)
 | `ukf_test.c`       | Example: constant-velocity tracking          |
 | `plot_ukf_test.py` | Python plotting of test output               |
 
----
 
 ## 🧪 Example Result
 
@@ -225,13 +210,10 @@ The corresponding plots are generated using:
 python3 plot_ukf_test.py
 ```
 
----
 
 ## 🏷️ License
 
 MIT License — free to use in research, commercial products, and embedded firmware.
-
----
 
 ```
 
