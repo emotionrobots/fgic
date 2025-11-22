@@ -22,15 +22,15 @@ The UKF assumes a **nonlinear state-space system**:
 
 ### State (process) model
 
-\[
+$$
 \mathbf{x}_{k+1} = f(\mathbf{x}_k, \mathbf{u}_k, w_k)
-\]
+$$
 
 ### Measurement model
 
-\[
+$$
 \mathbf{z}_k = h(\mathbf{x}_k, v_k)
-\]
+$$
 
 Where:
 
@@ -51,46 +51,46 @@ Rather than linearizing, the UKF approximates mean and covariance by evaluating 
 
 For a state mean \( \mathbf{x} \) and covariance \(P\):
 
-\[
+$$
 \lambda = \alpha^2 (n + \kappa) - n, \qquad \gamma = \sqrt{n + \lambda}
-\]
+$$
 
-\[
+$$
 \chi_0 = \mathbf{x}
-\]
+$$
 
-\[
+$$
 \chi_i = \mathbf{x} + \gamma \mathbf{l}_i \quad (i = 1..n)
-\]
+$$
 
-\[
+$$
 \chi_{i+n} = \mathbf{x} - \gamma \mathbf{l}_i \quad (i = 1..n)
-\]
+$$
 
 where \( \mathbf{l}_i \) is the *i-th column* of the Cholesky factor \(L\):
 
-\[
+$$
 P = L L^T
-\]
+$$
 
 
 ### Weighting
 
 Mean weights:
 
-\[
+$$
 W_0^{(m)} = \frac{\lambda}{n + \lambda}, \qquad 
 W_i^{(m)} = \frac{1}{2(n + \lambda)}
-\]
+$$
 
 Covariance weights:
 
-\[
+$$
 W_0^{(c)} = \frac{\lambda}{n + \lambda} + (1 - \alpha^2 + \beta)
-\]
-\[
+$$
+$$
 W_i^{(c)} = \frac{1}{2(n + \lambda)}
-\]
+$$
 
 ### Meaning of Parameters
 
@@ -108,22 +108,21 @@ Given state \( \mathbf{x}_k \), covariance \(P_k\), and input \( \mathbf{u}_k \)
 1. Generate sigma points from \( (\mathbf{x}_k, P_k) \)
 2. Propagate through process model:
 
-\[
+$$
 \chi_{k+1|k}^i = f(\chi_k^i, \mathbf{u}_k, \Delta t)
-\]
+$$
 
 3. Predicted mean:
 
-\[
+$$
 \hat{\mathbf{x}}_{k+1|k} = \sum W_i^{(m)} \chi_{k+1|k}^i
-\]
+$$
 
 4. Predicted covariance:
 
-\[
+$$
 P_{k+1|k} = Q + \sum W_i^{(c)} (\chi_{k+1|k}^i - \hat{\mathbf{x}}_{k+1|k})(\chi_{k+1|k}^i - \hat{\mathbf{x}}_{k+1|k})^T
-\]
-
+$$
 
 ## 🛰️ Update Step
 
@@ -131,33 +130,33 @@ Given a measurement \( \mathbf{z}_{k+1} \):
 
 1. Transform sigma points into measurement space:
 
-\[
+$$
 \mathbf{z}_{k+1}^i = h(\chi_{k+1|k}^i)
-\]
+$$
 
 2. Predicted measurement:
 
-\[
+$$
 \hat{\mathbf{z}}_{k+1} = \sum W_i^{(m)} \mathbf{z}_{k+1}^i
-\]
+$$
 
 3. Measurement covariance:
 
-\[
+$$
 S = R + \sum W_i^{(c)} (\mathbf{z}_{k+1}^i - \hat{\mathbf{z}}_{k+1})(\mathbf{z}_{k+1}^i - \hat{\mathbf{z}}_{k+1})^T
-\]
+$$
 
 4. Cross-covariance:
 
-\[
+$$
 P_{xz} = \sum W_i^{(c)} (\chi_{k+1|k}^i - \hat{\mathbf{x}}_{k+1|k})(\mathbf{z}_{k+1}^i - \hat{\mathbf{z}}_{k+1})^T
-\]
+$$
 
 5. Kalman gain:
 
-\[
+$$
 K = P_{xz} S^{-1}
-\]
+$$
 
 6. State update:
 
