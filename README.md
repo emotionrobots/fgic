@@ -1,7 +1,6 @@
 # Generic Unscented Kalman Filter (UKF) in C
 
-This repository provides a **fully configurable**, **embedded-friendly**, **Unscented Kalman Filter (UKF)** implementation in C, along with a sample unit test and visualization script.  
-It supports nonlinear systems, bounded RAM usage, and runs without external libraries.
+This repository provides a **fully configurable**, **embedded-friendly**, **Unscented Kalman Filter (UKF)** implementation in C, along with a sample unit test and visualization script.  It supports nonlinear systems, bounded RAM usage, and runs without external libraries.
 
 
 ## 📌 Overview
