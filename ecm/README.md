@@ -401,4 +401,4 @@ $I = 0.0\ \mathrm{A}$ (again a rest interval to identify parameters).
 
 Each phase runs for a fixed number of steps (e.g. 100 samples per phase), with constant step size:
 
-$ \delta t = 1 s$
+$$ \delta t = 1 s $$
