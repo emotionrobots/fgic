@@ -317,4 +317,37 @@ void ecm_update_h_from_ukf(ecm_t *ecm,
                            double soc,
                            double H_est,
                            int is_chg);
+```
+
+---
+
+# ECM Unit Test: Charge → Rest and Discharge → Rest
+
+This README explains the behavior and purpose of `ecm_test.c`, which exercises the **Equivalent Circuit Model (ECM)** implementation (`ecm.c`) with:
+
+- 20-element SOC tables for:
+  - $OCV(SOC)$
+  - $H_\mathrm{chg}(SOC)$, $H_\mathrm{dsg}(SOC)$
+  - $R_0(SOC)$, $R_1(SOC)$, $C_1(SOC)$
+- Arrhenius temperature compensation for $R_0$, $R_1$, $C_1$
+- Lumped thermal model for cell temperature $T$
+- Online updates of $R_0$, $R_1$, $C_1$ from rest events
+- Hooks for hysteresis update (not directly used in this test)
+
+The unit test compares a **“true” cell model** to a **“model” ECM** that is allowed to adapt its parameters based on voltage measurements, mimicking how you might calibrate an ECM against real battery data.
+
+---
+
+## 1. Overview of the Test
+
+The test constructs two ECM instances:
+
+- `e_true`: represents the *actual* cell behavior.
+- `e_model`: represents the *ECM used in estimation / BMS* whose parameters we want to adapt.
+
+Both are initialized with the same default tables using:
+
+```c
+ecm_init_default(&e_true);
+ecm_init_default(&e_model);
 
