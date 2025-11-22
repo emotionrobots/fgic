@@ -34,15 +34,13 @@ $$
 
 Where:
 
-$$
 | Symbol | Meaning |
 |--------|---------|
-| \( \mathbf{x}_k \) | System state (dimension \(n_x\)) |
-| \( \mathbf{z}_k \) | Measurement vector (dimension \(n_z\)) |
-| \( \mathbf{u}_k \) | Control input (optional) |
-| \( w_k, v_k \) | Zero-mean process and measurement noise |
-| \( Q, R \) | Noise covariances |
-$$
+| $\( \mathbf{x}_k \)$ | System state (dimension $\(n_x\)$) |
+| $\( \mathbf{z}_k \)$ | Measurement vector (dimension $\(n_z\)$) |
+| $\( \mathbf{u}_k \)$ | Control input (optional) |
+| $\( w_k, v_k \)$ | Zero-mean process and measurement noise |
+| $\( Q, R \)$ | Noise covariances |
 
 ## ✨ Sigma Points & Scaling
 
@@ -96,13 +94,11 @@ $$
 
 ### Meaning of Parameters
 
-$$
 | Parameter | Role | Recommended |
 |-----------|------|-------------|
-| \( \alpha \) | Spread of sigma points | \(10^{-3}\) to \(10^{-1}\) |
-| \( \beta \) | Encodes prior knowledge (Gaussian → 2) | 2 |
-| \( \kappa \) | Secondary scaling | 0 or 3-n |
-$$
+| $\( \alpha \)$ | Spread of sigma points | $\(10^{-3}\)$ to $\(10^{-1}\)$ |
+| $\( \beta \)$ | Encodes prior knowledge (Gaussian → 2) | 2 |
+| $\( \kappa \)$ | Secondary scaling | 0 or 3-n |
 
 ## 🔮 Prediction Step
 
