@@ -161,15 +161,15 @@ K = P_{xz} S^{-1}
 
 6. State update:
 
-\[
+$$
 \mathbf{x}_{k+1} = \hat{\mathbf{x}}_{k+1|k} + K(\mathbf{z}_{k+1} - \hat{\mathbf{z}}_{k+1})
-\]
+$$
 
 7. Covariance update:
 
-\[
+$$
 P_{k+1} = P_{k+1|k} - K S K^T
-\]
+$$
 
 
 ## 🛠️ Usage (C API Summary)
