@@ -479,4 +479,64 @@ When the current transitions from a non-rest region ($|I| > I_\text{rest}$) to a
 
    $$ \triangle V \approx -I_\text{load} R_0 $$
 
+Using the last non-rest sample $(I_\text{prev}, V_\text{prev})$ and the first rest sample $(I \approx 0, V_\text{meas})$:
 
+   $$ \triangle I = I - I_\text{prev} \approx -I_\text{prev}$$ ,  $$ \triangle V = V_\text{meas} - V_\text{prev} $$
+
+The code estimates:
+
+   $$ R_{0, \text{est}} = -\frac{\triangle V}{\triangle I} $$
+
+and then updates the corresponding SOC bin in r0_table with an exponential moving average:
+
+   $$ R_{0, \text{new}} = (1 - \alpha) R_{0,\text{old}} + \alpha R_{0, \text{est}} $$
+
+This is done inside ecm_update_from_measurement() whenever the code finds a rest entry event.
+
+### 5.2 Collecting $V_{RC}(t)$ Samples During Rest
+
+Once in rest ($I \approx 0$), the RC branch voltage decays approximately as:
+
+   $$ V_{RC}(t) = V_{RC}(0^+}e^{-t/\tau} $$
+
+with:
+
+   $$ \tau = R_1 C_1 $$
+
+The code starts a rest segment:
+
+Stores the step current $I_\text{step}$ (the load current just before rest),
+
+Stores the initial magnitude $|V_{RC}(0^+)|$,
+
+Collects samples $(t_i, |V_{RC}(t_i)|)$ at each step.
+
+These samples are buffered in arrays t_hist[] and vrc_hist[].
+
+### 5.3 LSQ Fit for $R_1$ and $C_1$ at Rest Exit
+
+When the current leaves rest again (e.g., the next time a load is applied), the code computes a least-squares fit to:
+
+  $$ y_i = \log \| V_{RC}(t_i) \| \approx a + bt_i $$
+
+The slope $b$ gives:
+
+  $$ \tau = -\frac{1}{b} $$
+
+At rest entry, we also recorded:
+
+$V_{RC}(0^+)$,
+
+$I_\text{step}$.
+
+Assuming a first-order RC model, we approximate:
+
+  $$ V_{RC}(0^+) \approx I_\text{step} R_1 $$
+
+so:
+
+  $$ R_{1, \text{est}} \approx \frac{V_{RC}(0^+)}{\|I_\text{step}\|} $$
+
+and then:
+
+  
