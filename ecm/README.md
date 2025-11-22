@@ -539,7 +539,7 @@ so:
 
 and then:
 
-  $$ C_{1,\text{est}} \approx \frac{\tau}{R_{1,\text{est}} $$
+  $$ C_{1,\text{est}} \approx \frac{\tau}{R_{1,\text{est}}} $$
 
 Again, the SOC bin for the current SOC is updated using an exponential moving average:
 
