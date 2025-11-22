@@ -109,11 +109,16 @@ The UKF process model implements:
 
    With $I>0$ = discharge:
 
-   $$ \frac{d(SOC)}{dt} = -\frac{I}{Q_C}.  $$
+$$
+\frac{d(SOC)}{dt} = -\frac{I}{Q_C}.  
+$$
 
    Discretized with step $\Delta t$:
 
-   $$ SOC_{k+1} = SOC_k - \frac{\Delta t}{Q_C} I_k.  $$
+$$ 
+SOC_{k+1} = SOC_k - \frac{\Delta t}{Q_C} I_k.  
+$$
+
 
 2. **RC branch dynamics**
 
