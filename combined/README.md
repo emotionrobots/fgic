@@ -167,7 +167,8 @@ $$
 
    discretized as:
 
-$$ T_{k+1} = T_k + \Delta t \frac{ I_k^2 R_0(SOC_k, T_k) - \dfrac{T_k - T_{amb}}{R_{th}} }{C_{th}}.  
+$$ 
+T_{k+1} = T_k + \Delta t \frac{ I_k^2 R_0(SOC_k, T_k) - \dfrac{T_k - T_{amb}}{R_{th}} }{C_{th}}.  
 $$
 
 All required parameters ($R_0$, $R_1$, $C_1$, hysteresis tables, capacity, and thermal parameters) come from `g_ecm_model`.
@@ -239,7 +240,9 @@ At each step:
 
 2. A noisy measurement is generated:
 
-   $$ V_\text{meas} = V_\text{true} + n_V $$,  $$ n_V \tilde \N(0, \sigma^2_V) $$,
+$$ 
+V_\text{meas} = V_\text{true} + n_V $$,  $$ n_V \tilde \N(0, \sigma^2_V) 
+$$,
 
 with $\sigma_V \approx 10\ \mathrm{mV}$.
 
