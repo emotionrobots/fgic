@@ -1,62 +1,89 @@
-/*
- * ukf_ecm_test.c
+/*!
+ *======================================================================================================================
+ * 
+ * @file		ukf_ecm_test.c
  *
- * Combined UKF + ECM unit test:
- *   - "True" ECM cell: e_true (plant)
- *   - "Model" ECM parameters: e_model (used inside UKF process / measurement models)
+ * @brief		Combined UKF + ECM unit test:
+ *   			- "True" ECM cell: e_true (plant)
+ *   			- "Model" ECM parameters: e_model (used inside UKF process / measurement models)
  *
- * UKF state:
- *   x = [ SOC, VRC, H, T ]^T
+ * @note
+ * 			UKF state:
+ *   				x = [ SOC, VRC, H, T ]^T
  *
- * Measurement:
- *   z = V_term
+ * 			Measurement:
+ *   				z = V_term
  *
- * Input to process model:
- *   u = [ I, T_amb ]^T
+ * 			Input to process model:
+ *   				u = [ I, T_amb ]^T
  *
- * Scenario:
- *   1) Discharging
- *   2) Rest
- *   3) Charging
- *   4) Rest
+ * 			Scenario:
+ *   				1) Discharging
+ *   				2) Rest
+ *   				3) Charging
+ *   				4) Rest
  *
- * Output: CSV of
- *   k, t, I,
- *   SOC_true, SOC_est,
- *   T_true, T_est,
- *   H_est,
- *   V_true, V_meas, V_est,
- *   R0_true, R0_model,
- *   R1_true, R1_model,
- *   C1_true, C1_model
+ * 			Output: CSV of
+ *   				k, t, I,
+ *   				SOC_true, SOC_est,
+ *   				T_true, T_est,
+ *   				H_est,
+ *   				V_true, V_meas, V_est,
+ *   				R0_true, R0_model,
+ *   				R1_true, R1_model,
+ *   				C1_true, C1_model
  *
- * This demonstrates that:
- *   - The UKF tracks SOC and T reasonably
- *   - The ECM + UKF measurement model reproduces terminal voltage
- *   - ECM parameter lookups and Arrhenius scaling are working
+ *
+ * 			This demonstrates that:
+ *   			- The UKF tracks SOC and T reasonably
+ *   			- The ECM + UKF measurement model reproduces terminal voltage
+ *   			- ECM parameter lookups and Arrhenius scaling are working
+ *
+ *======================================================================================================================
  */
-
 #include <stdio.h>
 #include <math.h>
 #include "ukf.h"
 #include "ecm.h"
 
 #ifndef M_PI
-#define M_PI 3.14159265358979323846
+#define M_PI 			(3.14159265358979323846)
 #endif
 
-
-/* ---------------- Random noise generator (for V_meas) ----------------- */
-
+static ecm_t g_ecm_model;     			/* parameter container for UKF model */
+static double g_current = 0.0; 			/* current used in measurement model */
 static unsigned int lcg_state = 123456789u;
 
-static double rand_uniform(void)
+
+
+/*!
+ *----------------------------------------------------------------------------------------------------------------------
+ *
+ *  @fn		double rand_uniform(void)
+ *
+ *  @brief	Random noise generator (uniform distro)
+ *
+ *----------------------------------------------------------------------------------------------------------------------
+ */
+static 
+double rand_uniform(void)
 {
     lcg_state = 1664525u * lcg_state + 1013904223u;
     return (double)(lcg_state & 0xFFFFFFu) / (double)0xFFFFFFu;
 }
 
-static double rand_normal(double std)
+
+/*!
+ *----------------------------------------------------------------------------------------------------------------------
+ *
+ *  @fn		double rand_normal(double std)
+ *
+ *  @brief	Random noise generator (normal distro) 
+ *
+ *----------------------------------------------------------------------------------------------------------------------
+ */
+static 
+double rand_normal(double std)
 {
     double u1 = rand_uniform();
     double u2 = rand_uniform();
@@ -66,21 +93,26 @@ static double rand_normal(double std)
     return std * r * cos(theta);
 }
 
-/* ---------------- Globals: ECM model used by UKF, current for hx ------- */
 
-static ecm_t g_ecm_model;     /* parameter container for UKF model */
-static double g_current = 0.0; /* current used in measurement model */
 
-/* ---------------- UKF Process Model: fx(x,u,dt) ------------------------
+/*!
+ *----------------------------------------------------------------------------------------------------------------------
  *
- * State: x = [ SOC, VRC, H, T ]
- * Input: u = [ I, T_amb ]
+ * @fn		void ukf_ecm_process_model(double *x, const double *u, double dt)
  *
- * Uses g_ecm_model tables (R0/R1/C1, H_chg/H_dsg) via ecm_* lookups.
- * Does NOT modify g_ecm_model dynamic state (we treat it as parameter store).
+ * @brief	UKF Process Model: fx(x,u,dt) 
+ *
+ * @param	State: x = [ SOC, VRC, H, T ]
+ * @param	Input: u = [ I, T_amb ]
+ * @param	Step:  dt 
+ *
+ * @note	Uses g_ecm_model tables (R0/R1/C1, H_chg/H_dsg) via ecm_* lookups.
+ * 		Does NOT modify g_ecm_model dynamic state (we treat it as parameter store).
+ *
+ *----------------------------------------------------------------------------------------------------------------------
  */
-
-static void ukf_ecm_process_model(double *x, const double *u, double dt)
+static 
+void ukf_ecm_process_model(double *x, const double *u, double dt)
 {
     double soc = x[0];
     double vrc = x[1];
@@ -115,11 +147,16 @@ static void ukf_ecm_process_model(double *x, const double *u, double dt)
     else if (I < -I_eps) dir = -1; /* charge */
 
     double H_inf = 0.0;
-    if (dir > 0) {
+    if (dir > 0) 
+    {
         H_inf = ecm_lookup_h_dsg(&g_ecm_model, soc);
-    } else if (dir < 0) {
+    } 
+    else if (dir < 0) 
+    {
         H_inf = ecm_lookup_h_chg(&g_ecm_model, soc);
-    } else {
+    } 
+    else 
+    {
         /* near rest: keep H roughly where it is (small relaxation) */
         H_inf = H;
     }
@@ -144,14 +181,23 @@ static void ukf_ecm_process_model(double *x, const double *u, double dt)
     x[3] = T;
 }
 
-/* ---------------- UKF Measurement Model: hx(x) -------------------------
- *
- * z = [ V_term ]
- *
- * Uses g_ecm_model lookups and global g_current.
- */
 
-static void ukf_ecm_measurement_model(const double *x, double *z)
+/*!
+ *----------------------------------------------------------------------------------------------------------------------
+ *
+ * @fn		void ukf_ecm_measurement_model(const double *x, double *z)
+ *
+ * @brief	UKF Measurement Model: hx(x) 
+ *
+ * @param	x = state variable 
+ * @param	z = [ V_term ]
+ *
+ * @note	Uses g_ecm_model lookups and global g_current.
+ *
+ *----------------------------------------------------------------------------------------------------------------------
+ */
+static 
+void ukf_ecm_measurement_model(const double *x, double *z)
 {
     double soc = x[0];
     double vrc = x[1];
@@ -167,9 +213,18 @@ static void ukf_ecm_measurement_model(const double *x, double *z)
     z[0] = V;
 }
 
-/* ---------------- Helper: CSV header and line -------------------------- */
 
-static void print_header(void)
+/*!
+ *----------------------------------------------------------------------------------------------------------------------
+ *
+ *  @fn		void print_header(void)
+ *
+ *  @brief	Print CSV header and line 
+ *
+ *----------------------------------------------------------------------------------------------------------------------
+ */
+static 
+void print_header(void)
 {
     printf("k,t,I,"
            "SOC_true,SOC_est,"
@@ -181,12 +236,19 @@ static void print_header(void)
            "C1_true,C1_model\n");
 }
 
-static void print_line(int k, double t, double I,
-                       const ecm_t *e_true,
-                       const ukf_t *ukf,
-                       double V_true_clean,
-                       double V_meas,
-                       double V_est)
+/*!
+ *----------------------------------------------------------------------------------------------------------------------
+ *
+ *  @fn		void print_line(int k, double t, double I, const ecm_t *e_true, const ukf_t *ukf, 
+ *				double V_true_clean, double V_meas, double V_est)
+ *
+ *  @brief	Print a line of data in CSV
+ *
+ *----------------------------------------------------------------------------------------------------------------------
+ */
+static 
+void print_line(int k, double t, double I, const ecm_t *e_true, const ukf_t *ukf, 
+		double V_true_clean, double V_meas, double V_est)
 {
     double soc_true = e_true->soc;
     double T_true   = e_true->T;
@@ -223,8 +285,11 @@ static void print_line(int k, double t, double I,
            C1_true, C1_model);
 }
 
-/* ---------------- Main test ------------------------------------------- */
-
+/*!
+ *----------------------------------------------------------------------------------------------------------------------
+ *  Main program
+ *----------------------------------------------------------------------------------------------------------------------
+ */
 int main(void)
 {
     /* True ECM and model ECM */
@@ -235,7 +300,8 @@ int main(void)
     ecm_init_default(&e_model);
 
     /* Make the true cell different so UKF+ECM have something to learn */
-    for (int i = 0; i < ECM_TABLE_SIZE; ++i) {
+    for (int i = 0; i < ECM_TABLE_SIZE; ++i) 
+    {
         e_true.r0_table[i] *= 1.4;  /* more resistive */
         e_true.r1_table[i] *= 0.8;  /* slightly smaller R1 */
         e_true.c1_table[i] *= 1.3;  /* larger diffusion cap */
@@ -260,7 +326,8 @@ int main(void)
     double kappa = 0.0;
 
     st = ukf_init(&ukf, n_x, n_z, alpha, beta, kappa);
-    if (st != UKF_OK) {
+    if (st != UKF_OK) 
+    {
         printf("ukf_init failed: %d\n", st);
         return -1;
     }
@@ -284,7 +351,8 @@ int main(void)
     };
 
     st = ukf_set_state(&ukf, x0, P0);
-    if (st != UKF_OK) {
+    if (st != UKF_OK) 
+    {
         printf("ukf_set_state failed: %d\n", st);
         return -1;
     }
@@ -300,7 +368,8 @@ int main(void)
     double R[1] = { 0.01 * 0.01 };
 
     st = ukf_set_noise(&ukf, Q, R);
-    if (st != UKF_OK) {
+    if (st != UKF_OK) 
+    {
         printf("ukf_set_noise failed: %d\n", st);
         return -1;
     }
@@ -312,7 +381,8 @@ int main(void)
 
     print_header();
 
-    for (int k = 0; k < N; ++k) {
+    for (int k = 0; k < N; ++k) 
+    {
         double t = (k + 1) * dt;
 
         /* Current profile:
@@ -337,7 +407,8 @@ int main(void)
         /* ---- UKF predict ---- */
         double u[2] = { I, T_amb };
         st = ukf_predict(&ukf, u, dt);
-        if (st != UKF_OK) {
+        if (st != UKF_OK) 
+	{
             printf("ukf_predict failed at k=%d: %d\n", k, st);
             return -1;
         }
@@ -346,7 +417,8 @@ int main(void)
         g_current = I; /* set global current for hx */
         double z[1] = { V_meas };
         st = ukf_update(&ukf, z);
-        if (st != UKF_OK) {
+        if (st != UKF_OK) 
+	{
             printf("ukf_update failed at k=%d: %d\n", k, st);
             return -1;
         }

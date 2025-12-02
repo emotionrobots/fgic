@@ -1,20 +1,46 @@
+/*!
+ *=====================================================================================================================
+ *
+ * @file		ecm.c
+ *
+ * @brief		Equivalent circuit model
+ *
+ *=====================================================================================================================
+ */
 #include "ecm.h"
 #include <math.h>
 #include <string.h>
 
-/* Small helpers */
-static double clamp(double x, double lo, double hi)
+
+/*!
+ *---------------------------------------------------------------------------------------------------------------------
+ *
+ * @fn		double clamp(double x, double lo, double hi)
+ *
+ * @brief	Clamping function 
+ *
+ *---------------------------------------------------------------------------------------------------------------------
+ */
+static 
+double clamp(double x, double lo, double hi)
 {
     if (x < lo) return lo;
     if (x > hi) return hi;
     return x;
 }
 
-/* Linear interpolation on SOC grid (assumed monotonic). */
-static double interp_soc(const double *grid,
-                         const double *tbl,
-                         int n,
-                         double soc)
+
+/*!
+ *---------------------------------------------------------------------------------------------------------------------
+ *
+ * @fn		double interp_soc(const double *grid, const double *tbl, int n, double soc)
+ *
+ * @brief	Linear interpolation on SOC grid (assumed monotonic). 
+ *
+ *---------------------------------------------------------------------------------------------------------------------
+ */
+static 
+double interp_soc(const double *grid, const double *tbl, int n, double soc)
 {
     soc = clamp(soc, grid[0], grid[n - 1]);
 
@@ -34,8 +60,18 @@ static double interp_soc(const double *grid,
     return tbl[n - 1];
 }
 
-/* Find nearest SOC bin index. */
-static int nearest_soc_idx(const double *grid, int n, double soc)
+
+/*!
+ *---------------------------------------------------------------------------------------------------------------------
+ *
+ * @fn		int nearest_soc_idx(const double *grid, int n, double soc)
+ *
+ * @brief	Find nearest SOC bin index. 
+ *
+ *---------------------------------------------------------------------------------------------------------------------
+ */
+static 
+int nearest_soc_idx(const double *grid, int n, double soc)
 {
     soc = clamp(soc, grid[0], grid[n - 1]);
     int best = 0;
@@ -50,28 +86,48 @@ static int nearest_soc_idx(const double *grid, int n, double soc)
     return best;
 }
 
-/* Arrhenius scaling k(T) = k_ref * exp(-Ea/R * (1/T - 1/T_ref)).
- * T, T_ref in °C; internal conversion to Kelvin.
+/*!
+ *---------------------------------------------------------------------------------------------------------------------
+ *
+ * @fn		double arrhenius_scale(double k_ref, double Ea, double T_C, double Tref_C)
+ *
+ * @brief	Arrhenius scaling k(T) = k_ref * exp(-Ea/R * (1/T - 1/T_ref)).  T, T_ref in °C; internal 
+ *              conversion to Kelvin.
+ *
+ * @param	k_ref 		Reference value at T=T_ref_C
+ * @param	Ea		Energy coefficient; Ea > 0 k will grow with temperature; 
+ *                                                  Ea < 0 k will shrink with temperature
+ *
+ * Rg		Thermal resistance TODO: check this value
+ *
+ *---------------------------------------------------------------------------------------------------------------------
  */
-static double arrhenius_scale(double k_ref,
-                              double Ea,
-                              double T_C,
-                              double Tref_C)
+static 
+double arrhenius_scale(double k_ref, double Ea, double T_C, double Tref_C)
 {
     /* If Ea ~ 0, skip scaling. */
-    if (fabs(Ea) < 1.0) return k_ref;
+    // if (fabs(Ea) < 1.0) return k_ref;
 
     const double Rg = 8.314462618; /* J/mol/K */
     double T  = T_C     + 273.15;
     double Tr = Tref_C  + 273.15;
 
-    if (T < 1.0)  T  = 1.0;
-    if (Tr < 1.0) Tr = 1.0;
+    if (T < 1.0)  T  = 1.0;		/* Dont accept near 0 deg K */
+    if (Tr < 1.0) Tr = 1.0;            
 
     double factor = exp( -Ea / Rg * (1.0 / T - 1.0 / Tr) );
     return k_ref * factor;
 }
 
+/*!
+ *---------------------------------------------------------------------------------------------------------------------
+ *
+ * @fn  	void ecm_init_default(ecm_t *ecm)
+ *
+ * @brief	Init ECM model to default values
+ *
+ *---------------------------------------------------------------------------------------------------------------------
+ */
 void ecm_init_default(ecm_t *ecm)
 {
     memset(ecm, 0, sizeof(*ecm));
@@ -82,7 +138,9 @@ void ecm_init_default(ecm_t *ecm)
     }
 
     /* Example OCV / hysteresis / R0 / R1 / C1 tables at 20°C. */
-    for (int i = 0; i < ECM_TABLE_SIZE; ++i) {
+    /* TODO: replace with actual tbl values */
+    for (int i = 0; i < ECM_TABLE_SIZE; ++i) 
+    {
         double s = ecm->soc_grid[i];
 
         /* Simple linear-ish OCV: 3.0 V at 0% -> 3.7 V at 100% */
@@ -101,17 +159,20 @@ void ecm_init_default(ecm_t *ecm)
     }
 
     /* Arrhenius parameters (example values) */
-    ecm->Ea_R0   = 20000.0;  /* J/mol */
-    ecm->Ea_R1   = 15000.0;
-    ecm->Ea_C1   = 10000.0;
+    ecm->Ea_R0   = -20000.0;  // shrinking with temp 
+    ecm->Ea_R1   = -15000.0;  // shrinking with temp
+    ecm->Ea_C1   =  10000.0;  // growing with temp
 
     /* Reference temperature for tables */
-    ecm->T_ref_C = 20.0;
+    ecm->T_ref_C = 25.0;
 
     /* Capacity and thermal */
     ecm->Q_Ah = 2.5;      /* 2.5 Ah cell (example) */
     ecm->C_th = 200.0;    /* J/°C */
     ecm->R_th = 3.0;      /* °C/W */
+
+    /* Quit current */
+    ecm->quit_current = 1e-3;   /* 1mA */
 
     /* Dynamic state defaults */
     ecm->soc = 0.5;
@@ -130,6 +191,15 @@ void ecm_init_default(ecm_t *ecm)
     ecm->hist_len = 0;
 }
 
+/*!
+ *---------------------------------------------------------------------------------------------------------------------
+ *
+ * @fn		void ecm_reset_state(ecm_t *ecm, double soc0, double T0)
+ *
+ * @brief	Reset ECM state but not model coef.
+ *
+ *---------------------------------------------------------------------------------------------------------------------
+ */
 void ecm_reset_state(ecm_t *ecm, double soc0, double T0)
 {
     ecm->soc = clamp(soc0, 0.0, 1.0);
@@ -148,70 +218,177 @@ void ecm_reset_state(ecm_t *ecm, double soc0, double T0)
     ecm->hist_len = 0;
 }
 
-/* Public lookups -------------------------------------------------------- */
 
+/*!
+ *---------------------------------------------------------------------------------------------------------------------
+ *
+ * @fn		double ecm_get_soc(const ecm_t *ecm)
+ *
+ * @brief	Get ECM SOC
+ *
+ *---------------------------------------------------------------------------------------------------------------------
+ */
 double ecm_get_soc(const ecm_t *ecm)
 {
     return ecm->soc;
 }
 
+/*!
+ *---------------------------------------------------------------------------------------------------------------------
+ *
+ * @fn		double ecm_lookup_ocv(const ecm_t *ecm, double soc, double T)
+ *
+ * @brief	Lookup OCV given SOC and T
+ *
+ *---------------------------------------------------------------------------------------------------------------------
+ */
 double ecm_lookup_ocv(const ecm_t *ecm, double soc, double T)
 {
     (void)T; /* ignoring temperature for OCV in this example */
     return interp_soc(ecm->soc_grid, ecm->ocv_table, ECM_TABLE_SIZE, soc);
 }
 
+/*!
+ *---------------------------------------------------------------------------------------------------------------------
+ *
+ * @fn		double ecm_lookup_h_chg(const ecm_t *ecm, double soc)
+ * 
+ * @brief	Lookup H_chg table value
+ *
+ *---------------------------------------------------------------------------------------------------------------------
+ */
 double ecm_lookup_h_chg(const ecm_t *ecm, double soc)
 {
     return interp_soc(ecm->soc_grid, ecm->h_chg_table, ECM_TABLE_SIZE, soc);
 }
 
+
+/*!
+ *---------------------------------------------------------------------------------------------------------------------
+ *
+ * @fn		double ecm_lookup_h_dsg(const ecm_t *ecm, double soc)
+ * 
+ * @brief	Lookup H_dsg table value
+ *
+ *---------------------------------------------------------------------------------------------------------------------
+ */
 double ecm_lookup_h_dsg(const ecm_t *ecm, double soc)
 {
     return interp_soc(ecm->soc_grid, ecm->h_dsg_table, ECM_TABLE_SIZE, soc);
 }
 
+/*!
+ *---------------------------------------------------------------------------------------------------------------------
+ *
+ * @fn		double ecm_lookup_r0(const ecm_t *ecm, double soc)
+ * 
+ * @brief	Lookup R0 table value
+ *
+ *---------------------------------------------------------------------------------------------------------------------
+ */
 double ecm_lookup_r0(const ecm_t *ecm, double soc, double T)
 {
     double r0_ref = interp_soc(ecm->soc_grid, ecm->r0_table, ECM_TABLE_SIZE, soc);
     return arrhenius_scale(r0_ref, ecm->Ea_R0, T, ecm->T_ref_C);
 }
 
+/*!
+ *---------------------------------------------------------------------------------------------------------------------
+ *
+ * @fn		double ecm_lookup_r1(const ecm_t *ecm, double soc)
+ * 
+ * @brief	Lookup R1 table value
+ *
+ *---------------------------------------------------------------------------------------------------------------------
+ */
 double ecm_lookup_r1(const ecm_t *ecm, double soc, double T)
 {
     double r1_ref = interp_soc(ecm->soc_grid, ecm->r1_table, ECM_TABLE_SIZE, soc);
     return arrhenius_scale(r1_ref, ecm->Ea_R1, T, ecm->T_ref_C);
 }
 
+
+/*!
+ *---------------------------------------------------------------------------------------------------------------------
+ *
+ * @fn		double ecm_lookup_c1(const ecm_t *ecm, double soc)
+ * 
+ * @brief	Lookup C1 table value
+ *
+ *---------------------------------------------------------------------------------------------------------------------
+ */
 double ecm_lookup_c1(const ecm_t *ecm, double soc, double T)
 {
     double c1_ref = interp_soc(ecm->soc_grid, ecm->c1_table, ECM_TABLE_SIZE, soc);
     return arrhenius_scale(c1_ref, ecm->Ea_C1, T, ecm->T_ref_C);
 }
 
-/* Convenience getters at current state */
+/*!
+ *---------------------------------------------------------------------------------------------------------------------
+ *
+ *  @fn		double ecm_get_ocv_now(const ecm_t *ecm)
+ *  
+ *  @brief	Convenience getters at current state 
+ *
+ *---------------------------------------------------------------------------------------------------------------------
+ */
 double ecm_get_ocv_now(const ecm_t *ecm)
 {
     return ecm_lookup_ocv(ecm, ecm->soc, ecm->T);
 }
 
+
+/*!
+ *---------------------------------------------------------------------------------------------------------------------
+ *
+ *  @fn		double ecm_get_r0_now(const ecm_t *ecm)
+ *  
+ *  @brief	Convenience getters at current state 
+ *
+ *---------------------------------------------------------------------------------------------------------------------
+ */
 double ecm_get_r0_now(const ecm_t *ecm)
 {
     return ecm_lookup_r0(ecm, ecm->soc, ecm->T);
 }
 
+/*!
+ *---------------------------------------------------------------------------------------------------------------------
+ *
+ *  @fn		double ecm_get_r1_now(const ecm_t *ecm)
+ *  
+ *  @brief	Convenience getters at current state 
+ *
+ *---------------------------------------------------------------------------------------------------------------------
+ */
 double ecm_get_r1_now(const ecm_t *ecm)
 {
     return ecm_lookup_r1(ecm, ecm->soc, ecm->T);
 }
 
+/*!
+ *---------------------------------------------------------------------------------------------------------------------
+ *
+ *  @fn		double ecm_get_c1_now(const ecm_t *ecm)
+ *  
+ *  @brief	Convenience getters at current state 
+ *
+ *---------------------------------------------------------------------------------------------------------------------
+ */
 double ecm_get_c1_now(const ecm_t *ecm)
 {
     return ecm_lookup_c1(ecm, ecm->soc, ecm->T);
 }
 
-/* Dynamics -------------------------------------------------------------- */
-
+/*!
+ *---------------------------------------------------------------------------------------------------------------------
+ *
+ *  @fn		void ecm_step(ecm_t *ecm, double I, double T_amb, double dt)
+ *
+ *  @brief	Compute the ECM dynamics; normally this require UKF
+ *
+ *---------------------------------------------------------------------------------------------------------------------
+ */
 void ecm_step(ecm_t *ecm, double I, double T_amb, double dt)
 {
     /* Capacity in Coulombs */
@@ -238,14 +415,31 @@ void ecm_step(ecm_t *ecm, double I, double T_amb, double dt)
     ecm->T += dT;
 
     /* Track direction for hysteresis sign */
-    const double I_eps = 1e-3;
-    if (I > I_eps) {
+    if (I > ecm->quit_current) 
+    {
         ecm->last_dir = +1; /* discharge */
-    } else if (I < -I_eps) {
+    } 
+    else if (I < -ecm->quit_current) 
+    {
         ecm->last_dir = -1; /* charge */
     }
+    else
+    {
+        ecm->last_dir = 0; /* rest */
+    }
+
 }
 
+
+/*!
+ *---------------------------------------------------------------------------------------------------------------------
+ *
+ *  @fn		double ecm_terminal_voltage(const ecm_t *ecm, double I)
+ *
+ *  @brief	Compute ECM terminal voltage
+ *
+ *---------------------------------------------------------------------------------------------------------------------
+ */
 double ecm_terminal_voltage(const ecm_t *ecm, double I)
 {
     double ocv = ecm_lookup_ocv(ecm, ecm->soc, ecm->T);
@@ -269,12 +463,22 @@ double ecm_terminal_voltage(const ecm_t *ecm, double I)
     return V;
 }
 
-/* --- Online parameter updates ----------------------------------------- */
-
-static void ecm_finalize_lsq_segment(ecm_t *ecm)
+/*!
+ *---------------------------------------------------------------------------------------------------------------------
+ *
+ * @fn		void ecm_finalize_lsq_segment(ecm_t *ecm)
+ *
+ * @brief	Perform online parameter updates 
+ *
+ *---------------------------------------------------------------------------------------------------------------------
+ */
+static 
+void ecm_finalize_lsq_segment(ecm_t *ecm)
 {
     if (!ecm->in_rest_segment) return;
-    if (ecm->hist_len < 3) {
+
+    if (ecm->hist_len < 3) 
+    {
         ecm->in_rest_segment = 0;
         ecm->hist_len = 0;
         return;
@@ -284,7 +488,8 @@ static void ecm_finalize_lsq_segment(ecm_t *ecm)
     double n = (double)ecm->hist_len;
     double sum_t = 0.0, sum_y = 0.0, sum_tt = 0.0, sum_ty = 0.0;
 
-    for (int i = 0; i < ecm->hist_len; ++i) {
+    for (int i = 0; i < ecm->hist_len; ++i) 
+    {
         double t = ecm->t_hist[i];
         double v = ecm->vrc_hist[i];
         if (v <= 0.0) continue;
@@ -297,14 +502,18 @@ static void ecm_finalize_lsq_segment(ecm_t *ecm)
     }
 
     double denom = n * sum_tt - sum_t * sum_t;
-    if (fabs(denom) < 1e-12) {
+    if (fabs(denom) < 1e-12) 
+    {
         ecm->in_rest_segment = 0;
         ecm->hist_len = 0;
         return;
     }
 
     double b = (n * sum_ty - sum_t * sum_y) / denom;
-    if (b >= -1e-6) { /* need negative slope */
+
+    /* need negative slope */
+    if (b >= -1e-6) 
+    { 
         ecm->in_rest_segment = 0;
         ecm->hist_len = 0;
         return;
@@ -313,7 +522,8 @@ static void ecm_finalize_lsq_segment(ecm_t *ecm)
     double tau = -1.0 / b;
 
     /* Need initial VRC and step current for R1/C1 identification */
-    if (fabs(ecm->step_I) < 1e-3 || ecm->vrc0 <= 0.0) {
+    if (fabs(ecm->step_I) < 1e-3 || ecm->vrc0 <= 0.0) 
+    {
         ecm->in_rest_segment = 0;
         ecm->hist_len = 0;
         return;
@@ -323,7 +533,8 @@ static void ecm_finalize_lsq_segment(ecm_t *ecm)
     double R1_est = ecm->vrc0 / fabs(ecm->step_I);
     double C1_est = tau / R1_est;
 
-    if (R1_est <= 0.0 || C1_est <= 0.0) {
+    if (R1_est <= 0.0 || C1_est <= 0.0) 
+    {
         ecm->in_rest_segment = 0;
         ecm->hist_len = 0;
         return;
@@ -340,11 +551,17 @@ static void ecm_finalize_lsq_segment(ecm_t *ecm)
     ecm->hist_len = 0;
 }
 
-void ecm_update_from_measurement(ecm_t *ecm,
-                                 double I,
-                                 double V_meas,
-                                 double vrc_est,
-                                 double dt)
+
+/*!
+ *---------------------------------------------------------------------------------------------------------------------
+ *
+ *  @fn		void ecm_update_from_measurement(ecm_t *ecm, double I, double V_meas, double vrc_est, double dt)
+ *
+ *  @brief	Perform ECM update from measurement
+ *
+ *---------------------------------------------------------------------------------------------------------------------
+ */
+void ecm_update_from_measurement(ecm_t *ecm, double I, double V_meas, double vrc_est, double dt)
 {
     const double I_rest_thr = 0.02; /* 20 mA threshold for "rest" */
     const double VRC_min    = 1e-5;
@@ -352,13 +569,16 @@ void ecm_update_from_measurement(ecm_t *ecm,
     int is_rest = (fabs(I) <= I_rest_thr);
 
     /* ----- R0 update at rest entry (dV/dI) ----- */
-    if (is_rest && !ecm->prev_is_rest && fabs(ecm->prev_I) > I_rest_thr) {
+    if (is_rest && !ecm->prev_is_rest && fabs(ecm->prev_I) > I_rest_thr) 
+    {
         double dI = I - ecm->prev_I;  /* should be -prev_I */
         double dV = V_meas - ecm->prev_V;
 
-        if (fabs(dI) > 1e-6) {
+        if (fabs(dI) > 1e-6) 
+	{
             double R0_est = -dV / dI; /* sign so that positive R0 */
-            if (R0_est > 1e-4 && R0_est < 1.0) {
+            if (R0_est > 1e-4 && R0_est < 1.0) 
+	    {
                 int idx = nearest_soc_idx(ecm->soc_grid, ECM_TABLE_SIZE, ecm->soc);
                 double alpha = 0.3;
                 ecm->r0_table[idx] = (1.0 - alpha) * ecm->r0_table[idx] + alpha * R0_est;
@@ -372,7 +592,8 @@ void ecm_update_from_measurement(ecm_t *ecm,
         ecm->step_I = ecm->prev_I;
         ecm->vrc0 = fabs(vrc_est);
 
-        if (ecm->vrc0 > VRC_min && ecm->hist_len < ECM_LSQ_MAX) {
+        if (ecm->vrc0 > VRC_min && ecm->hist_len < ECM_LSQ_MAX) 
+	{
             ecm->t_hist[0] = 0.0;
             ecm->vrc_hist[0] = ecm->vrc0;
             ecm->hist_len = 1;
@@ -380,11 +601,13 @@ void ecm_update_from_measurement(ecm_t *ecm,
     }
 
     /* ----- LSQ accumulation within rest segment ----- */
-    if (is_rest && ecm->in_rest_segment) {
+    if (is_rest && ecm->in_rest_segment) 
+    {
         ecm->rest_time += dt;
         double vrc_abs = fabs(vrc_est);
 
-        if (vrc_abs > VRC_min && ecm->hist_len < ECM_LSQ_MAX) {
+        if (vrc_abs > VRC_min && ecm->hist_len < ECM_LSQ_MAX) 
+	{
             ecm->t_hist[ecm->hist_len] = ecm->rest_time;
             ecm->vrc_hist[ecm->hist_len] = vrc_abs;
             ecm->hist_len++;
@@ -392,7 +615,8 @@ void ecm_update_from_measurement(ecm_t *ecm,
     }
 
     /* ----- Exiting rest: finalize LSQ for R1/C1 ----- */
-    if (!is_rest && ecm->prev_is_rest && ecm->in_rest_segment) {
+    if (!is_rest && ecm->prev_is_rest && ecm->in_rest_segment) 
+    {
         ecm_finalize_lsq_segment(ecm);
     }
 
@@ -402,20 +626,27 @@ void ecm_update_from_measurement(ecm_t *ecm,
     ecm->prev_is_rest = is_rest;
 }
 
-void ecm_update_h_from_ukf(ecm_t *ecm,
-                           double soc,
-                           double H_est,
-                           int is_chg)
+/*!
+ *---------------------------------------------------------------------------------------------------------------------
+ *
+ *  @fn		void ecm_update_h_from_ukf(ecm_t *ecm, double soc, double H_est, int is_chg)
+ *  
+ *  @brief	Update H from UKF
+ *
+ *---------------------------------------------------------------------------------------------------------------------
+ */
+void ecm_update_h_from_ukf(ecm_t *ecm, double soc, double H_est, int is_chg)
 {
     int idx = nearest_soc_idx(ecm->soc_grid, ECM_TABLE_SIZE, soc);
     double alpha = 0.2; /* hysteresis adaptation rate */
 
-    if (is_chg) {
-        ecm->h_chg_table[idx] =
-            (1.0 - alpha) * ecm->h_chg_table[idx] + alpha * H_est;
-    } else {
-        ecm->h_dsg_table[idx] =
-            (1.0 - alpha) * ecm->h_dsg_table[idx] + alpha * H_est;
+    if (is_chg) 
+    {
+        ecm->h_chg_table[idx] = (1.0 - alpha) * ecm->h_chg_table[idx] + alpha * H_est;
+    } 
+    else 
+    {
+        ecm->h_dsg_table[idx] = (1.0 - alpha) * ecm->h_dsg_table[idx] + alpha * H_est;
     }
 }
 

@@ -1,5 +1,14 @@
-#ifndef ECM_H
-#define ECM_H
+/*!
+ *=====================================================================================================================
+ *
+ * @file		ecm.h
+ *
+ * @brief		ECM header file
+ *
+ *=====================================================================================================================
+ */
+#ifndef __ECM_H__
+#define __ECM_H__
 
 #include <stddef.h>
 
@@ -7,10 +16,14 @@
 extern "C" {
 #endif
 
-#define ECM_TABLE_SIZE 20
-#define ECM_LSQ_MAX    64   /* max samples for LSQ on VRC decay */
+#define ECM_TABLE_SIZE 		20
+#define ECM_LSQ_MAX    		64   /* max samples for LSQ on VRC decay */
 
-/* Lumped ECM model with lookup tables and Arrhenius temperature scaling. */
+/*!
+ *--------------------------------------------------------------------------------------------------------------------- 
+ * Lumped ECM model with lookup tables and Arrhenius temperature scaling. 
+ *--------------------------------------------------------------------------------------------------------------------- 
+ */
 typedef struct {
     /* SOC grid (monotonic, usually 0..1) */
     double soc_grid[ECM_TABLE_SIZE];
@@ -43,8 +56,11 @@ typedef struct {
     double v_rc;    /* RC branch voltage [V] */
     double T;       /* core cell temperature [°C] */
 
-    /* Hysteresis direction memory: -1 charge, +1 discharge, 0 unknown */
+    /* Hysteresis direction memory: -1 charge, +1 discharge, 0 rest */
     int last_dir;
+
+    /* Quit current that determine REST */
+    double quit_current;
 
     /* --- Online parameter update bookkeeping --- */
 
@@ -63,16 +79,29 @@ typedef struct {
     int    hist_len;
 } ecm_t;
 
-/* Initialize ECM with default example tables (20 points, 0..1 SOC).
+
+/*!
+ *--------------------------------------------------------------------------------------------------------------------- 
+ * Initialize ECM with default example tables (20 points, 0..1 SOC).
  * Sets reasonable defaults for OCV, R0, R1, C1, hysteresis, Arrhenius,
  * thermal parameters, and initial state.
+ * Initialize ECM with default example tables (20 points, 0..1 SOC).
+ *--------------------------------------------------------------------------------------------------------------------- 
  */
 void ecm_init_default(ecm_t *ecm);
 
-/* Reset dynamic state only (SOC, VRC, T, direction and update buffers). */
+
+/*!
+ *--------------------------------------------------------------------------------------------------------------------- 
+ * Reset dynamic state only (SOC, VRC, T, direction and update buffers). 
+ *--------------------------------------------------------------------------------------------------------------------- 
+ */
 void ecm_reset_state(ecm_t *ecm, double soc0, double T0);
 
-/* Advance ECM dynamics for one time step.
+
+/*!
+ *--------------------------------------------------------------------------------------------------------------------- 
+ * Advance ECM dynamics for one time step.
  *
  * Inputs:
  *  ecm   : ECM instance
@@ -82,33 +111,61 @@ void ecm_reset_state(ecm_t *ecm, double soc0, double T0);
  *
  * States updated: soc, v_rc, T, last_dir
  * Parameters R0/R1/C1 are read via lookup + Arrhenius scaling.
+ *--------------------------------------------------------------------------------------------------------------------- 
  */
 void ecm_step(ecm_t *ecm, double I, double T_amb, double dt);
 
-/* Compute terminal voltage for given current I using current ECM state. */
+/*!
+ *--------------------------------------------------------------------------------------------------------------------- 
+ * Compute terminal voltage for given current I using current ECM state. 
+ *--------------------------------------------------------------------------------------------------------------------- 
+ */
 double ecm_terminal_voltage(const ecm_t *ecm, double I);
+
+
 
 /* --- Lookup helpers for use in UKF models --- */
 
-/* Return internal SOC state. */
+/*!
+ *--------------------------------------------------------------------------------------------------------------------- 
+ * Return internal SOC state. 
+ *--------------------------------------------------------------------------------------------------------------------- 
+ */
 double ecm_get_soc(const ecm_t *ecm);
 
-/* Interpolated lookups at arbitrary SOC, T (°C).
+
+/*!
+ *--------------------------------------------------------------------------------------------------------------------- 
+ * Interpolated lookups at arbitrary SOC, T (°C).
  * OCV is assumed weakly temperature dependent, so T is ignored here,
  * but passed for a consistent API.
+ *--------------------------------------------------------------------------------------------------------------------- 
  */
 double ecm_lookup_ocv(const ecm_t *ecm, double soc, double T);
 
-/* R0, R1, C1 with Arrhenius temperature scaling from T_ref_C to T (°C). */
+
+/*!
+ *--------------------------------------------------------------------------------------------------------------------- 
+ * R0, R1, C1 with Arrhenius temperature scaling from T_ref_C to T (°C). 
+ *--------------------------------------------------------------------------------------------------------------------- 
+ */
 double ecm_lookup_r0(const ecm_t *ecm, double soc, double T);
 double ecm_lookup_r1(const ecm_t *ecm, double soc, double T);
 double ecm_lookup_c1(const ecm_t *ecm, double soc, double T);
 
-/* Hysteresis tables (no temperature scaling here). */
+/*!
+ *--------------------------------------------------------------------------------------------------------------------- 
+ * Hysteresis tables (no temperature scaling here). 
+ *--------------------------------------------------------------------------------------------------------------------- 
+ */
 double ecm_lookup_h_chg(const ecm_t *ecm, double soc);
 double ecm_lookup_h_dsg(const ecm_t *ecm, double soc);
 
-/* Convenience getters for current internal state: */
+/*!
+ *--------------------------------------------------------------------------------------------------------------------- 
+ * Convenience getters for current internal state: 
+ *--------------------------------------------------------------------------------------------------------------------- 
+ */
 double ecm_get_ocv_now(const ecm_t *ecm);
 double ecm_get_r0_now(const ecm_t *ecm);
 double ecm_get_r1_now(const ecm_t *ecm);
@@ -116,7 +173,9 @@ double ecm_get_c1_now(const ecm_t *ecm);
 
 /* --- Online parameter update APIs -------------------------------------- */
 
-/* Update internal R0, R1, C1 tables from measurements.
+/*!
+ *--------------------------------------------------------------------------------------------------------------------- 
+ * Update internal R0, R1, C1 tables from measurements.
  *
  * Inputs:
  *  ecm      : ECM instance (the "model" you want to adapt)
@@ -132,6 +191,7 @@ double ecm_get_c1_now(const ecm_t *ecm);
  *  - During rest, collect VRC(t) samples.
  *  - On exiting rest: LSQ fit of exponential decay VRC(t) to update
  *    R1 and C1 SOC bins via tau = R1*C1 and VRC(0+) = I_step * R1.
+ *--------------------------------------------------------------------------------------------------------------------- 
  */
 void ecm_update_from_measurement(ecm_t *ecm,
                                  double I,
@@ -139,7 +199,9 @@ void ecm_update_from_measurement(ecm_t *ecm,
                                  double vrc_est,
                                  double dt);
 
-/* Update H_chg / H_dsg tables from UKF-estimated hysteresis.
+/*!
+ *--------------------------------------------------------------------------------------------------------------------- 
+ * Update H_chg / H_dsg tables from UKF-estimated hysteresis.
  *
  * Inputs:
  *  soc       : SOC at which hysteresis estimate applies
@@ -147,6 +209,7 @@ void ecm_update_from_measurement(ecm_t *ecm,
  *  is_chg    : non-zero => charging hysteresis (H_chg), else discharging (H_dsg)
  *
  * A simple exponential moving average is applied at the nearest SOC bin.
+ *--------------------------------------------------------------------------------------------------------------------- 
  */
 void ecm_update_h_from_ukf(ecm_t *ecm,
                            double soc,
@@ -157,5 +220,5 @@ void ecm_update_h_from_ukf(ecm_t *ecm,
 }
 #endif
 
-#endif /* ECM_H */
+#endif /* __ECM_H__ */
 
