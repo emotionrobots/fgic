@@ -141,7 +141,7 @@ double arrhenius_scale(double k_ref, double Ea, double T_C, double Tref_C)
 /*! 
  *--------------------------------------------------------------------------------------------------------------------- 
  *
- * @fn		void ecm_init_default(ecm_t *ecm)
+ * @fn		void ecm_init_default(ecm_t *ecm, double T0)
  *
  * @brief 	Initialize ECM with default example tables (20 points, 0..1 SOC).
  *
@@ -150,7 +150,7 @@ double arrhenius_scale(double k_ref, double Ea, double T_C, double Tref_C)
  *
  *--------------------------------------------------------------------------------------------------------------------- 
  */
-void ecm_init_default(ecm_t *ecm)
+void ecm_init_default(ecm_t *ecm, double T0)
 {
     memset(ecm, 0, sizeof(*ecm));
 
@@ -162,7 +162,7 @@ void ecm_init_default(ecm_t *ecm)
     ecm->soc_grid[ECM_TABLE_SIZE-1] = (double)1.0;
 
 
-    /* Example OCV / hysteresis / R0 / R1 / C1 tables at 20°C. */
+    /* Example OCV / hysteresis / R0 / R1 / C1 tables at T0. */
     for (int i = 0; i < ECM_TABLE_SIZE; ++i) 
     {
         double s = ecm->soc_grid[i];
@@ -191,18 +191,17 @@ void ecm_init_default(ecm_t *ecm)
     ecm->Ea_C1   = -10000.0;
 
     /* Reference temperature for tables */
-    ecm->T_ref_C = 25.0;
+    ecm->T_ref_C = T0;
 
     /* Capacity and thermal */
     ecm->Q_Ah = 2.5;      /* 2.5 Ah cell (example) */
     ecm->C_th = 200.0;    /* J/°C */
-    //ecm->R_th = 3.0;      /* °C/W */
-    ecm->R_th = 0.2;      /* °C/W */
+    ecm->R_th = 3.0;      /* °C/W */
 
     /* Dynamic state defaults */
     ecm->soc = 0.5;
     ecm->v_rc = 0.0;
-    ecm->T   = 20.0;
+    ecm->T   = ecm->T_ref_C;
     ecm->last_dir = 0;
 
     ecm->prev_I = 0.0;
@@ -421,7 +420,7 @@ double ecm_get_c1_now(const ecm_t *ecm)
  *
  *--------------------------------------------------------------------------------------------------------------------- 
  */
-void ecm_step(ecm_t *ecm, double I, double T_amb, double dt)
+void ecm_step(ecm_t *ecm, double I, double T_a, double dt)
 {
     /* Capacity in Coulombs */
     double Qc = ecm->Q_Ah * 3600.0;
@@ -443,7 +442,7 @@ void ecm_step(ecm_t *ecm, double I, double T_amb, double dt)
     /* Thermal update */
     double R0 = ecm_lookup_r0(ecm, ecm->soc, ecm->T);
     double power_loss = I * I * R0;
-    double dT = dt * ( (power_loss - (ecm->T - T_amb) / ecm->R_th) / ecm->C_th );
+    double dT = dt * ( (power_loss - (ecm->T - T_a) / ecm->R_th) / ecm->C_th );
     ecm->T += dT;
 
     /* Track direction for hysteresis sign */

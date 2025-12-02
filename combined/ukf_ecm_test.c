@@ -55,6 +55,11 @@ static double g_current = 0.0; 			/* current used in measurement model */
 static unsigned int lcg_state = 123456789u;
 
 
+/* Simulation setup */
+double dt    = 1.0;
+double T_amb = 25.0;
+int    N     = 400;
+
 
 /*!
  *----------------------------------------------------------------------------------------------------------------------
@@ -296,8 +301,9 @@ int main(void)
     ecm_t e_true;
     ecm_t e_model;
 
-    ecm_init_default(&e_true);
-    ecm_init_default(&e_model);
+    ecm_init_default(&e_true, T_amb);
+    ecm_init_default(&e_model, T_amb);
+
 
     /* Make the true cell different so UKF+ECM have something to learn */
     for (int i = 0; i < ECM_TABLE_SIZE; ++i) 
@@ -308,8 +314,8 @@ int main(void)
     }
 
     /* Initial states */
-    ecm_reset_state(&e_true, 0.8, 20.0);  /* true cell at SOC=0.8, T=20C */
-    ecm_reset_state(&e_model, 0.7, 20.0); /* model parameters (not used as dynamics) */
+    ecm_reset_state(&e_true, 0.8, T_amb);  /* true cell at SOC=0.8, T=T_amb */
+    ecm_reset_state(&e_model, 0.7, T_amb); /* model parameters (not used as dynamics) */
 
     /* Copy model ECM into global for UKF */
     g_ecm_model = e_model;
@@ -339,7 +345,7 @@ int main(void)
         0.6,   /* SOC */
         0.0,   /* VRC */
         0.0,   /* H */
-        25.0   /* T (a bit off) */
+        T_amb   /* T (a bit off) */
     };
 
     /* Initial covariance */
@@ -373,11 +379,6 @@ int main(void)
         printf("ukf_set_noise failed: %d\n", st);
         return -1;
     }
-
-    /* Simulation setup */
-    double dt    = 1.0;
-    double T_amb = 20.0;
-    int    N     = 400;
 
     print_header();
 

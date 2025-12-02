@@ -76,7 +76,7 @@ typedef struct
 ecm_t;
 
 
-void ecm_init_default(ecm_t *ecm);
+void ecm_init_default(ecm_t *ecm, double T0);
 void ecm_reset_state(ecm_t *ecm, double soc0, double T0);
 void ecm_step(ecm_t *ecm, double I, double T_amb, double dt);
 double ecm_terminal_voltage(const ecm_t *ecm, double I);
