@@ -213,6 +213,7 @@ void ecm_init_default(ecm_t *ecm, double T0)
     ecm->step_I = 0.0;
     ecm->vrc0 = 0.0;
     ecm->hist_len = 0;
+    ecm->I_quit = ECM_QUIT_CURRENT;
 }
 
 
@@ -241,6 +242,7 @@ void ecm_reset_state(ecm_t *ecm, double soc0, double T0)
     ecm->step_I = 0.0;
     ecm->vrc0 = 0.0;
     ecm->hist_len = 0;
+    ecm->I_quit = ECM_QUIT_CURRENT;
 }
 
 
@@ -407,7 +409,7 @@ double ecm_get_c1_now(const ecm_t *ecm)
  *--------------------------------------------------------------------------------------------------------------------- 
  *
  * @fn		void ecm_step(ecm_t *ecm, double I, double T_amb, double dt)
- *
+ * 
  * @brief	Compute the ECM dynamics one time step
  *
  * @param	ecm   : ECM instance
@@ -446,12 +448,11 @@ void ecm_step(ecm_t *ecm, double I, double T_a, double dt)
     ecm->T += dT;
 
     /* Track direction for hysteresis sign */
-    const double I_eps = 1e-3;
-    if (I > I_eps) 
+    if (I > ecm->I_quit) 
     {
         ecm->last_dir = +1; /* discharge */
     } 
-    else if (I < -I_eps) 
+    else if (I < -ecm->I_quit) 
     {
         ecm->last_dir = -1; /* charge */
     }
@@ -475,9 +476,9 @@ double ecm_terminal_voltage(const ecm_t *ecm, double I)
 
     int dir = ecm->last_dir;
 
-    if (I > I_eps)      
+    if (I > ecm->I_quit)      
        dir = +1;
-    else if (I < -I_eps) 
+    else if (I < -ecm->I_quit) 
        dir = -1;
 
 
@@ -625,13 +626,12 @@ void ecm_finalize_lsq_segment(ecm_t *ecm)
  */
 void ecm_update_from_measurement(ecm_t *ecm, double I, double V_meas, double vrc_est, double dt)
 {
-    const double I_rest_thr = 0.02; /* 20 mA threshold for "rest" */
     const double VRC_min    = 1e-5;
 
-    int is_rest = (fabs(I) <= I_rest_thr);
+    int is_rest = (fabs(I) <= ecm->I_quit);
 
     /* ----- Test for rest entry ----- */
-    if (is_rest && !ecm->prev_is_rest && fabs(ecm->prev_I) > I_rest_thr) 
+    if (is_rest && !ecm->prev_is_rest && fabs(ecm->prev_I) > ecm->I_quit) 
     {
         /* ----- Compute R0  ----- */
         double dI = I - ecm->prev_I;  /* should be -prev_I */

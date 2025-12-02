@@ -434,7 +434,7 @@ int main(void)
             ecm_update_from_measurement(&g_ecm_model, I, V_meas, vrc_est, dt);
 
             /* Update hysteresis tables from UKF H_est */
-            int is_chg = (I < -1e-3) ? 1 : 0;
+            int is_chg = (I < -g_ecm_model.I_quit) ? 1 : 0;
             ecm_update_h_from_ukf(&g_ecm_model, soc_est, H_est, is_chg);
         }
 

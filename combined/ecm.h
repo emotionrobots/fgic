@@ -17,7 +17,8 @@ extern "C" {
 #endif
 
 #define ECM_TABLE_SIZE 			20
-#define ECM_LSQ_MAX    			64   /* max samples for LSQ on VRC decay */
+#define ECM_LSQ_MAX    			64   	/* max samples for LSQ on VRC decay */
+#define ECM_QUIT_CURRENT		0.001   /* 1 mA */
 
 
 /* Lumped ECM model with lookup tables and Arrhenius temperature scaling. */
@@ -72,6 +73,7 @@ typedef struct
     double t_hist[ECM_LSQ_MAX];                /* times within rest */
     double vrc_hist[ECM_LSQ_MAX];              /* |VRC| samples */
     int    hist_len;
+    double I_quit;			       /* Quit current */
 } 
 ecm_t;
 
