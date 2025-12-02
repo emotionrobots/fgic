@@ -448,9 +448,12 @@ void ecm_step(ecm_t *ecm, double I, double T_amb, double dt)
 
     /* Track direction for hysteresis sign */
     const double I_eps = 1e-3;
-    if (I > I_eps) {
+    if (I > I_eps) 
+    {
         ecm->last_dir = +1; /* discharge */
-    } else if (I < -I_eps) {
+    } 
+    else if (I < -I_eps) 
+    {
         ecm->last_dir = -1; /* charge */
     }
 }
@@ -470,22 +473,32 @@ double ecm_terminal_voltage(const ecm_t *ecm, double I)
 
     /* Choose hysteresis branch based on direction or last_dir */
     const double I_eps = 1e-3;
+
     int dir = ecm->last_dir;
-    if (I > I_eps)      dir = +1;
-    else if (I < -I_eps) dir = -1;
+
+    if (I > I_eps)      
+       dir = +1;
+    else if (I < -I_eps) 
+       dir = -1;
+
 
     double H = 0.0;
-    if (dir > 0) {
+    if (dir > 0) 
+    {
         H = ecm_lookup_h_dsg(ecm, ecm->soc);
-    } else if (dir < 0) {
+    } 
+    else if (dir < 0) 
+    {
         H = ecm_lookup_h_chg(ecm, ecm->soc);
     }
 
     double R0 = ecm_lookup_r0(ecm, ecm->soc, ecm->T);
 
-    double V = ocv + H + ecm->v_rc - I * R0;
+    double V = ocv + H - ecm->v_rc - I * R0;
+
     return V;
 }
+
 
 /*! 
  *--------------------------------------------------------------------------------------------------------------------- 
